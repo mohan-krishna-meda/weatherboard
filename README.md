@@ -3,7 +3,7 @@
 > Search any city and get an instant animated weather dashboard with a 5-day forecast and temperature trend chart.
 
 ## 🚀 Live Demo
-[**Try it here →**](https://YOUR_USERNAME.github.io/weatherboard)
+[**Try it here →**](https://mohan-krishna-meda.github.io/weatherboard)
 
 ## ✨ Features
 - Search weather for any city worldwide
