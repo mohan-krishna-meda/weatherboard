@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WeatherBoard – Live Weather Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #060b18; --card: #0d1628; --border: #1a2640;
+      --accent: #38bdf8; --gold: #fbbf24; --text: #e2f4ff;
+      --muted: #7fa8c8; --green: #34d399; --orange: #fb923c; --red: #f87171;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+    /* Stars bg */
+    body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at 20% 30%, rgba(56,189,248,.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 70%, rgba(251,191,36,.04) 0%, transparent 50%); pointer-events: none; }
+    header { text-align: center; padding: 40px 20px 24px; position: relative; }
+    header h1 { font-size: 2rem; font-weight: 800; letter-spacing:-.02em; }
+    header h1 span { color: var(--accent); }
+    header p { color: var(--muted); margin-top: 6px; font-size: 0.9rem; }
+    .search-row { display: flex; gap: 10px; max-width: 460px; margin: 20px auto 0; }
+    .search-row input { flex:1; background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 13px 16px; color: var(--text); font-size: 0.95rem; outline: none; transition: border .2s; }
+    .search-row input:focus { border-color: var(--accent); }
+    .search-row input::placeholder { color: var(--muted); }
+    .btn { padding: 13px 20px; background: var(--accent); border: none; border-radius: 10px; color: #060b18; font-weight: 800; font-size: 1rem; cursor: pointer; transition: opacity .2s; }
+    .btn:hover { opacity: .85; }
+    main { max-width: 880px; margin: 0 auto; padding: 8px 20px 60px; }
+    /* Current weather card */
+    .current-card { background: linear-gradient(135deg, #0d1628 0%, #0a1a35 100%); border: 1px solid var(--border); border-radius: 20px; padding: 30px 28px; display: flex; align-items: center; gap: 24px; position: relative; overflow: hidden; margin-bottom: 20px; }
+    .current-card::before { content:''; position:absolute; top:-40px;right:-40px; width:200px; height:200px; background: radial-gradient(circle, rgba(56,189,248,.12), transparent 70%); border-radius: 50%; }
+    .weather-icon { font-size: 5rem; line-height: 1; flex-shrink: 0; }
+    .weather-main .city { font-size: 1.6rem; font-weight: 800; }
+    .weather-main .temp { font-size: 3.2rem; font-weight: 900; color: var(--accent); line-height: 1.1; }
+    .weather-main .desc { color: var(--muted); font-size: 1rem; text-transform: capitalize; margin-top: 2px; }
+    .weather-meta { margin-left: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .meta-item { background: rgba(56,189,248,.06); border: 1px solid rgba(56,189,248,.12); border-radius: 10px; padding: 10px 14px; text-align: center; }
+    .meta-item .mv { font-size: 1.1rem; font-weight: 700; }
+    .meta-item .ml { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    /* Forecast */
+    .forecast-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+    @media(max-width:600px){ .forecast-grid { grid-template-columns: repeat(3,1fr); } }
+    .day-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 10px; text-align: center; transition: transform .2s, border-color .2s; cursor: default; }
+    .day-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+    .day-card .day-name { font-size: 0.78rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing:.05em; }
+    .day-card .day-icon { font-size: 2rem; margin: 8px 0 4px; }
+    .day-card .day-hi { font-size: 1.1rem; font-weight: 800; }
+    .day-card .day-lo { font-size: 0.82rem; color: var(--muted); }
+    .day-card .day-desc { font-size: 0.72rem; color: var(--muted); margin-top: 4px; text-transform: capitalize; }
+    /* Chart */
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+    .chart-card h3 { font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing:.07em; margin-bottom: 14px; }
+    .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 100px; }
+    .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .bar { width: 100%; border-radius: 6px 6px 0 0; transition: height .5s ease; min-height: 4px; }
+    .bar-val { font-size: 0.7rem; font-weight: 700; }
+    .bar-lbl { font-size: 0.65rem; color: var(--muted); }
+    .api-note { text-align:center; color:var(--muted); font-size:0.8rem; margin-top:10px; background:rgba(56,189,248,.05); border:1px solid var(--border); border-radius:8px; padding:8px; }
+    .api-note a { color:var(--accent); }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Weather<span>Board</span></h1>
+  <p>Real-time weather with animated 5-day forecast</p>
+  <div class="search-row">
+    <input type="text" id="cityInput" placeholder="Search city (e.g. Mumbai, London...)" value="Vijayawada"/>
+    <button class="btn" onclick="loadWeather()">🔍</button>
+  </div>
+</header>
+<main>
+  <div id="weatherContent"></div>
+  <div class="api-note">
+    🔑 <strong>Demo Mode:</strong> Showing realistic simulated data. To connect live weather, add your free <a href="https://openweathermap.org/api" target="_blank">OpenWeatherMap API key</a> in the source code.
+  </div>
+</main>
+
+<script>
+  const WEATHER_DATA = {
+    clear:   { icon:'☀️', desc:'Clear Sky',       hi:+3,  lo:-4  },
+    clouds:  { icon:'⛅', desc:'Partly Cloudy',    hi:+1,  lo:-3  },
+    rain:    { icon:'🌧️', desc:'Light Rain',       hi:-2,  lo:-6  },
+    storm:   { icon:'⛈️', desc:'Thunderstorm',     hi:-4,  lo:-8  },
+    mist:    { icon:'🌫️', desc:'Misty',            hi:-1,  lo:-3  },
+    snow:    { icon:'❄️', desc:'Snow Showers',     hi:-6,  lo:-10 },
+    drizzle: { icon:'🌦️', desc:'Drizzle',          hi:-1,  lo:-4  },
+  };
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const CONDITIONS = Object.keys(WEATHER_DATA);
+
+  function cityHash(city) {
+    let h = 0;
+    for (let c of city.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) % 997;
+    return h;
+  }
+
+  function getCondition(seed, offset=0) {
+    return CONDITIONS[(seed + offset) % CONDITIONS.length];
+  }
+
+  function loadWeather() {
+    const city = document.getElementById('cityInput').value.trim() || 'Vijayawada';
+    const seed = cityHash(city);
+    const baseTemp = 18 + (seed % 22); // 18–40 °C
+    const cond = getCondition(seed);
+    const w = WEATHER_DATA[cond];
+
+    const today = new Date();
+    const forecast = Array.from({length:5}, (_,i) => {
+      const c = getCondition(seed, i+1);
+      const wd = WEATHER_DATA[c];
+      const d = new Date(today); d.setDate(today.getDate()+i);
+      return {
+        day: DAYS[d.getDay()],
+        icon: wd.icon,
+        desc: wd.desc,
+        hi: baseTemp + wd.hi + (i % 3),
+        lo: baseTemp + wd.lo - (i % 2),
+      };
+    });
+
+    const humidity = 40 + (seed % 50);
+    const wind     = 5 + (seed % 30);
+    const vis      = 5 + (seed % 15);
+    const feels    = baseTemp - 2 + (seed % 5);
+
+    renderWeather({ city, temp: baseTemp, cond, w, humidity, wind, vis, feels, forecast });
+  }
+
+  function tempColor(t) {
+    if (t >= 35) return '#f87171';
+    if (t >= 28) return '#fb923c';
+    if (t >= 20) return '#38bdf8';
+    if (t >= 10) return '#34d399';
+    return '#a78bfa';
+  }
+
+  function renderWeather({ city, temp, w, humidity, wind, vis, feels, forecast }) {
+    const barMax = Math.max(...forecast.map(f => f.hi));
+    const bars = forecast.map(f => {
+      const pct = Math.round((f.hi / barMax) * 100);
+      return `<div class="bar-wrap">
+        <div class="bar-val" style="color:${tempColor(f.hi)}">${f.hi}°</div>
+        <div class="bar" style="height:${pct}px;background:${tempColor(f.hi)};opacity:.8"></div>
+        <div class="bar-lbl">${f.day}</div>
+      </div>`;
+    }).join('');
+
+    const forecastCards = forecast.map(f => `
+      <div class="day-card">
+        <div class="day-name">${f.day}</div>
+        <div class="day-icon">${f.icon}</div>
+        <div class="day-hi" style="color:${tempColor(f.hi)}">${f.hi}°C</div>
+        <div class="day-lo">${f.lo}°C</div>
+        <div class="day-desc">${f.desc}</div>
+      </div>
+    `).join('');
+
+    document.getElementById('weatherContent').innerHTML = `
+      <div class="current-card">
+        <div class="weather-icon">${w.icon}</div>
+        <div class="weather-main">
+          <div class="city">${city}</div>
+          <div class="temp" style="color:${tempColor(temp)}">${temp}°C</div>
+          <div class="desc">${w.desc}</div>
+        </div>
+        <div class="weather-meta">
+          <div class="meta-item"><div class="mv">💧 ${humidity}%</div><div class="ml">Humidity</div></div>
+          <div class="meta-item"><div class="mv">💨 ${wind} km/h</div><div class="ml">Wind Speed</div></div>
+          <div class="meta-item"><div class="mv">🌡️ ${feels}°C</div><div class="ml">Feels Like</div></div>
+          <div class="meta-item"><div class="mv">👁️ ${vis} km</div><div class="ml">Visibility</div></div>
+        </div>
+      </div>
+      <div class="forecast-grid">${forecastCards}</div>
+      <div class="chart-card">
+        <h3>📈 5-Day Temperature Trend</h3>
+        <div class="chart-bars">${bars}</div>
+      </div>
+    `;
+  }
+
+  document.getElementById('cityInput').addEventListener('keydown', e => { if(e.key==='Enter') loadWeather(); });
+  loadWeather();
+</script>
+</body>
+</html>
